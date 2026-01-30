@@ -1,68 +1,78 @@
 "use client";
 import { useState, useEffect } from "react";
-// 1. Importamos los componentes de la librería
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+// Definimos las monedas que queremos monitorear
+const CRYPTOS = ["bitcoin", "ethereum", "solana", "cardano"];
+
 export default function Home() {
-  const [moneda, setMoneda] = useState("bitcoin");
-  const [precio, setPrecio] = useState<string | null>(null);
+  const [datos, setDatos] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
 
   const consultarAPI = async () => {
     try {
       setCargando(true);
-      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${moneda}&vs_currencies=usd`);
-      const datos = await res.json();
-      setPrecio(datos[moneda].usd.toLocaleString());
+      // Consultamos todas las monedas en una sola petición
+      const res = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTOS.join(",")}&vs_currencies=usd`
+      );
+      const json = await res.json();
+      setDatos(json);
     } catch (e) {
-      setPrecio("Error");
+      console.error("Error en la API", e);
     } finally {
       setCargando(false);
     }
   };
 
-useEffect(() => {
+  useEffect(() => {
     consultarAPI();
-  }, [moneda]);
+    // Opcional: Actualizar cada 30 segundos
+    const intervalo = setInterval(consultarAPI, 30000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-slate-900 text-white font-sans">
-      <div className="w-full max-w-md space-y-6">
-        <h1 className="text-3xl font-bold text-center text-blue-400">Crypto Monitor Pro</h1>
-        
-        <select 
-          value={moneda}
-          onChange={(e) => setMoneda(e.target.value)}
-          className="w-full bg-slate-800 text-white p-3 rounded-lg border border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-        >
-          <option value="bitcoin">Bitcoin (BTC)</option>
-          <option value="ethereum">Ethereum (ETH)</option>
-          <option value="solana">Solana (SOL)</option>
-        </select>
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-slate-900 text-white font-sans">
+      <div className="w-full max-w-2xl space-y-6">
+        <header className="text-center">
+          <h1 className="text-4xl font-extrabold text-blue-400 tracking-tight">Crypto Dashboard</h1>
+          <p className="text-slate-400 mt-2">Ingeniero: José | Mercado en Tiempo Real</p>
+        </header>
 
-        {/* 2. Usamos la Card aquí para mostrar el dato principal */}
-        <Card className="bg-slate-800 border-slate-700 shadow-2xl overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider">
-              Precio Actual ({moneda})
-            </CardTitle>
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl">
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-300">Resumen de Mercado (USD)</CardTitle>
           </CardHeader>
           <CardContent>
-            {cargando ? (
-              <div className="text-2xl text-yellow-500 animate-pulse font-mono text-center py-4">
-                Sincronizando...
+            {cargando && !datos ? (
+              <div className="space-y-4">
+                <div className="h-8 bg-slate-700 animate-pulse rounded"></div>
+                <div className="h-8 bg-slate-700 animate-pulse rounded"></div>
               </div>
             ) : (
-              <div className="text-5xl font-bold text-green-400 font-mono text-center py-4">
-                ${precio}
+              <div className="divide-y divide-slate-700">
+                {CRYPTOS.map((id) => (
+                  <div key={id} className="py-4 flex justify-between items-center group hover:bg-slate-700/30 px-2 transition-colors rounded-lg">
+                    <span className="capitalize font-medium text-slate-200">{id}</span>
+                    <span className="font-mono font-bold text-green-400 text-xl">
+                      ${datos?.[id]?.usd?.toLocaleString() || "---"}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-slate-500">
-          Datos provistos por CoinGecko API • Actualización en tiempo real
-        </p>
+        <div className="flex justify-center">
+           <button 
+            onClick={consultarAPI}
+            className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-full transition-all"
+           >
+            Sincronizar ahora
+           </button>
+        </div>
       </div>
     </main>
   );
