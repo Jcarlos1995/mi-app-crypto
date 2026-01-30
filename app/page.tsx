@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-// Definimos las monedas que queremos monitorear
-const CRYPTOS = ["bitcoin", "ethereum", "solana", "cardano"];
+// Configuración de las monedas a monitorear
+const CRYPTOS = ["bitcoin", "ethereum", "solana", "cardano", "polkadot"];
 
 export default function Home() {
   const [datos, setDatos] = useState<any>(null);
@@ -11,68 +11,91 @@ export default function Home() {
 
   const consultarAPI = async () => {
     try {
-      setCargando(true);
-      // Consultamos todas las monedas en una sola petición
+      // No ponemos cargando en true aquí para que no "parpadee" si ya hay caché
       const res = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTOS.join(",")}&vs_currencies=usd`
       );
       const json = await res.json();
+      
       setDatos(json);
+      // Guardamos en el caché del navegador (Persistencia)
+      localStorage.setItem("crypto_cache", JSON.stringify(json));
     } catch (e) {
-      console.error("Error en la API", e);
+      console.error("Error en la petición:", e);
     } finally {
       setCargando(false);
     }
   };
 
   useEffect(() => {
+    // 1. Intentar cargar desde el caché al iniciar
+    const cacheGuardado = localStorage.getItem("crypto_cache");
+    if (cacheGuardado) {
+      setDatos(JSON.parse(cacheGuardado));
+      setCargando(false);
+    }
+
+    // 2. Consultar datos frescos
     consultarAPI();
-    // Opcional: Actualizar cada 30 segundos
-    const intervalo = setInterval(consultarAPI, 30000);
+
+    // 3. Configurar actualización automática cada 45 segundos
+    const intervalo = setInterval(consultarAPI, 45000);
     return () => clearInterval(intervalo);
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-slate-900 text-white font-sans">
-      <div className="w-full max-w-2xl space-y-6">
-        <header className="text-center">
-          <h1 className="text-4xl font-extrabold text-blue-400 tracking-tight">Crypto Dashboard</h1>
-          <p className="text-slate-400 mt-2">Ingeniero: José | Mercado en Tiempo Real</p>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-slate-950 text-white font-sans">
+      <div className="w-full max-w-2xl space-y-8">
+        
+        <header className="text-center space-y-2">
+          <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 uppercase tracking-tighter">
+            Crypto OS v2.0
+          </h1>
+          <p className="text-slate-500 text-sm font-mono">Status: Connected to Mainnet • Engineer: José</p>
         </header>
 
-        <Card className="bg-slate-800 border-slate-700 shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-lg text-slate-300">Resumen de Mercado (USD)</CardTitle>
+        <Card className="bg-slate-900 border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] overflow-hidden">
+          <CardHeader className="border-b border-slate-800 bg-slate-900/50">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-slate-400 text-xs uppercase tracking-widest font-bold">Market Overview</CardTitle>
+              {cargando && <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-ping"></span>}
+            </div>
           </CardHeader>
-          <CardContent>
-            {cargando && !datos ? (
-              <div className="space-y-4">
-                <div className="h-8 bg-slate-700 animate-pulse rounded"></div>
-                <div className="h-8 bg-slate-700 animate-pulse rounded"></div>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-700">
-                {CRYPTOS.map((id) => (
-                  <div key={id} className="py-4 flex justify-between items-center group hover:bg-slate-700/30 px-2 transition-colors rounded-lg">
-                    <span className="capitalize font-medium text-slate-200">{id}</span>
-                    <span className="font-mono font-bold text-green-400 text-xl">
-                      ${datos?.[id]?.usd?.toLocaleString() || "---"}
-                    </span>
+          <CardContent className="p-0">
+            <div className="divide-y divide-slate-800">
+              {CRYPTOS.map((id) => (
+                <div 
+                  key={id} 
+                  className="p-6 flex justify-between items-center hover:bg-slate-800/50 transition-all duration-300 group"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-2 h-2 rounded-full bg-slate-700 group-hover:bg-blue-500 transition-colors"></div>
+                    <span className="capitalize font-semibold text-slate-300 group-hover:text-white">{id}</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <div className="text-right">
+                    <p className="text-2xl font-mono font-bold text-emerald-400">
+                      ${datos?.[id]?.usd ? datos[id].usd.toLocaleString() : "---"}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono">USD / {id.toUpperCase()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        <div className="flex justify-center">
-           <button 
+        <footer className="flex justify-between items-center px-2">
+          <div className="text-[10px] text-slate-600 font-mono">
+            {cargando ? "SINCRONIZANDO..." : "SISTEMA ACTUALIZADO"}
+          </div>
+          <button 
             onClick={consultarAPI}
-            className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 px-4 py-2 rounded-full transition-all"
-           >
-            Sincronizar ahora
-           </button>
-        </div>
+            className="text-[10px] font-bold text-blue-500 hover:text-blue-400 uppercase tracking-widest transition-colors"
+          >
+            [ Forzar Refresco ]
+          </button>
+        </footer>
+
       </div>
     </main>
   );
