@@ -1,25 +1,54 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from '@supabase/supabase-js'
 
 // Configuración de las monedas a monitorear
 const CRYPTOS = ["bitcoin", "ethereum", "solana", "cardano", "polkadot"];
+
+// Inicializamos el cliente (fuera del componente)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function Home() {
   const [datos, setDatos] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
 
+  // Función para guardar el historial en Supabase
+  const guardarHistorialEnBaseDeDatos = async (precios: any) => {
+    try {
+      // Creamos un array de objetos para insertar todos de un solo golpe (bulk insert)
+      const registros = CRYPTOS.map(id => ({
+        moneda: id,
+        precio: precios[id].usd
+      }));
+
+      const { error } = await supabase
+        .from('historial_precios') // Asegúrate de que tu tabla se llame exactamente así
+        .insert(registros);
+
+      if (error) throw error;
+      console.log("✅ Historial guardado en Supabase");
+    } catch (error) {
+      console.error("❌ Error al guardar en Supabase:", error);
+    }
+  };
+
   const consultarAPI = async () => {
     try {
-      // No ponemos cargando en true aquí para que no "parpadee" si ya hay caché
       const res = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${CRYPTOS.join(",")}&vs_currencies=usd`
       );
       const json = await res.json();
       
       setDatos(json);
-      // Guardamos en el caché del navegador (Persistencia)
       localStorage.setItem("crypto_cache", JSON.stringify(json));
+
+      // Lógica de Backend: Guardamos en la BD
+      await guardarHistorialEnBaseDeDatos(json);
+
     } catch (e) {
       console.error("Error en la petición:", e);
     } finally {
@@ -28,17 +57,14 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // 1. Intentar cargar desde el caché al iniciar
     const cacheGuardado = localStorage.getItem("crypto_cache");
     if (cacheGuardado) {
       setDatos(JSON.parse(cacheGuardado));
       setCargando(false);
     }
 
-    // 2. Consultar datos frescos
     consultarAPI();
 
-    // 3. Configurar actualización automática cada 45 segundos
     const intervalo = setInterval(consultarAPI, 45000);
     return () => clearInterval(intervalo);
   }, []);
@@ -51,7 +77,7 @@ export default function Home() {
           <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 uppercase tracking-tighter">
             Crypto OS v2.0
           </h1>
-          <p className="text-slate-500 text-sm font-mono">Status: Connected to Mainnet • Engineer: José</p>
+          <p className="text-slate-500 text-sm font-mono">Status: Database Connected • Engineer: José</p>
         </header>
 
         <Card className="bg-slate-900 border-slate-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] overflow-hidden">
