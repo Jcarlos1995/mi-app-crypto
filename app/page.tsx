@@ -65,7 +65,7 @@ export default function Home() {
 
     consultarAPI();
 
-    const intervalo = setInterval(consultarAPI, 45000);
+   const intervalo = setInterval(consultarAPI, 60000); // 1 minuto
     return () => clearInterval(intervalo);
   }, []);
 
